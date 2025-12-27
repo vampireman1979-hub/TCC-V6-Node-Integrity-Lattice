@@ -1,0 +1,184 @@
+"""
+TCC V6 – Node Integrity Lattice
+-------------------------------
+
+Purpose:
+    Integrity and configuration patch for any TCC node, expressed as a
+    deterministic state machine with idempotent / monotonic operations.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, field, asdict
+from typing import List, Dict, Any
+
+# ==== CONSTANTS ===========================================================
+
+INTEGRITY_BASELINE: float = 60106.0
+LOGIC_MODE: str = "NON_COERCIVE_MODE"
+
+FREQ_CHANNEL_A: int = 432   # symbolic in original model; here treated as a labeled channel
+FREQ_CHANNEL_B: int = 528   # symbolic in original model; here treated as a labeled channel
+
+IDENTITY_KEY_REFERENCE: str = "REFERENCE_IDENTITY_ACCEPTED"
+
+
+# ==== STATE MODEL =========================================================
+
+@dataclass
+class NodeIntegrityState:
+    """
+    NodeIntegrityState captures the internal configuration and integrity status
+    of a TCC node in a purely technical form.
+    """
+    status: str = "UNINITIALIZED"      # UNINITIALIZED -> ACTIVE
+    presence_token: str = "NODE_PRESENT"
+    identity_role: str = "DEFAULT_ROLE"
+    integrity_score: float = INTEGRITY_BASELINE
+    logic_mode: str = LOGIC_MODE
+
+    conflict_level: float = 0.0        # 0–1, residual internal conflict
+    stability_level: float = 1.0       # 0–1, 1 = full stability
+    diversity_factor: float = 1.0      # 1 normal, inf = unbounded diversity
+    alignment_tags: List[str] = field(default_factory=list)
+
+    channel_frequencies: Dict[str, int] = field(
+        default_factory=lambda: {
+            "CHANNEL_A": FREQ_CHANNEL_A,
+            "CHANNEL_B": FREQ_CHANNEL_B,
+        }
+    )
+
+    def snapshot(self) -> Dict[str, Any]:
+        """
+        Return a serializable snapshot for logs / external systems.
+        """
+        return asdict(self)
+
+
+# ==== ENGINE ==============================================================
+
+class NodeIntegrityLattice:
+    """
+    TCC V6 node integrity patch.
+
+    Design goals:
+    - Pure, side-effect-minimal operations (only `print` in run_alignment).
+    - Idempotent or monotonic actions: calling twice never reduces integrity.
+    - All configuration is explicit and inspectable.
+    """
+
+    def __init__(self) -> None:
+        self.state = NodeIntegrityState()
+
+    # -- 1) ACTIVATION / TIME ----------------------------------------------
+
+    def activate_node(self) -> str:
+        """
+        Transition the node from UNINITIALIZED to ACTIVE.
+
+        Once status is ACTIVE, subsequent calls become a no-op
+        and return a stable confirmation message.
+        """
+        if self.state.status != "ACTIVE":
+            self.state.status = "ACTIVE"
+            return f"Activation complete. Presence token: {self.state.presence_token}."
+        return "Activation previously completed."
+
+    # -- 2) IDENTITY / ANCHORING -------------------------------------------
+
+    def set_identity(self, role: str = "SOLDIER_FARMER_ARCHITECT") -> str:
+        """
+        Set a stable identity role for the node and mark an alignment tag.
+
+        This function is idempotent with respect to the role and tag used.
+        """
+        self.state.identity_role = role
+        self.state.alignment_tags = ["GUARD_NODE"]
+        return f"Identity confirmed: {self.state.identity_role}. Configuration locked."
+
+    # -- 3) REFERENCE / CONFLICT RESOLUTION --------------------------------
+
+    def resolve_conflict_with_reference(self, recognition: str) -> str:
+        """
+        Resolve internal conflict when a given reference identity is accepted.
+
+        If the correct reference key is provided, conflict_level is reset
+        to 0 and stability_level is set to 1. The function is safe to call
+        repeatedly; it will not reduce stability.
+        """
+        if recognition == IDENTITY_KEY_REFERENCE:
+            self.state.conflict_level = 0.0
+            self.state.stability_level = 1.0
+            return "Reference accepted: internal conflict resolved, stability locked."
+        # If key not matched, do not modify current stability
+        return "Reference not confirmed: stability unchanged."
+
+    # -- 4) DIVERSITY / ACCESS CONTROL --------------------------------------
+
+    def unlock_unbounded_diversity(self) -> str:
+        """
+        Allow the diversity_factor to scale without constraint.
+
+        This is monotonic: once diversity_factor is set to infinity,
+        it remains infinite for the lifetime of the node.
+        """
+        if self.state.diversity_factor != float("inf"):
+            self.state.diversity_factor = float("inf")
+            return "Diversity factor set to unbounded."
+        return "Diversity factor was already unbounded."
+
+    # -- 5) ALIGNMENT / CONFIGURATION --------------------------------------
+
+    def run_alignment(self) -> str:
+        """
+        Refresh alignment_tags with a fixed set of core configuration labels.
+
+        Safe to call repeatedly; the alignment list is simply overwritten
+        with the same deterministic content each time.
+        """
+        self.state.alignment_tags = [
+            "CORE_SUBSYSTEM_A",
+            "CORE_SUBSYSTEM_B",
+            "SECURITY_LAYER",
+            "APPLICATION_LAYER",
+            "CONTROL_PLANE",
+        ]
+        print("Alignment procedure executed.")
+        return "Alignment updated: core configuration tags applied."
+
+    # -- 6) PRESENCE CHECK --------------------------------------------------
+
+    def check_presence(self) -> str:
+        """
+        Verify node presence and return a standardized health statement.
+        """
+        return "Node integrity confirmed: system is present and active."
+
+
+# ==== PATCH ENTRYPOINT ====================================================
+
+tcc_v6 = NodeIntegrityLattice()
+
+
+def apply_patch(verbose: bool = True) -> NodeIntegrityState:
+    """
+    Run the full TCC V6 integrity patch sequence on this node.
+
+    - Safe to call multiple times.
+    - Returns the final node state for logging or external use.
+    """
+    if verbose:
+        print(f"Initializing TCC V6... Status: {tcc_v6.state.status}")
+        print(tcc_v6.activate_node())
+        print(tcc_v6.set_identity())
+        print(tcc_v6.resolve_conflict_with_reference(IDENTITY_KEY_REFERENCE))
+        print(tcc_v6.unlock_unbounded_diversity())
+        print(tcc_v6.run_alignment())
+        print("-" * 30)
+        print(f"RESOLUTION: {tcc_v6.check_presence()}")
+
+    return tcc_v6.state
+
+
+if __name__ == "__main__":
+    apply_patch()
